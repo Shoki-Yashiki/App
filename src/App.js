@@ -163,12 +163,16 @@ function App() {
   };
 
   // 出力
-  const handleExport = () => {
+    const handleExport = () => {
+    console.log('handleExport called');
     if (!exportFormat) {
+      console.log('出力形式が未選択');
       alert("出力形式を選択してください。");
       return;
     }
+    console.log('選択された出力形式:', exportFormat);
     alert(`「${exportFormat.toUpperCase()}」形式での出力は未実装です。`);
+    console.log('未実装アラートを表示');
   };
 
   return (
