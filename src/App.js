@@ -26,7 +26,7 @@ function AppContent() {
   const socketRef = useRef(null);
 
   // WebSocket接続
-  const connectWebSocket = () => {
+  const connectWebSocket = (onOpenCallback) => {
     if (socketRef.current) {
       socketRef.current.close();
     }
@@ -35,6 +35,7 @@ function AppContent() {
 
     socket.onopen = () => {
       // 接続成功
+      if (onOpenCallback) onOpenCallback();
     };
 
     socket.onmessage = (event) => {
@@ -42,6 +43,12 @@ function AppContent() {
 
       // CSVダウンロード
       if (data.message === "CSVファイルが生成されました。以下のリンクからダウンロードできます。" && data.url) {
+        setDownloadUrl(data.url);
+        return;
+      }
+
+      // Excelダウンロード
+      if (data.message === "Excelファイルが生成されました。以下のリンクからダウンロードできます。" && data.url) {
         setDownloadUrl(data.url);
         return;
       }
@@ -120,8 +127,8 @@ function AppContent() {
     setProgress({ received: 0, total: 0 });
 
     if (!socketRef.current || socketRef.current.readyState !== 1) {
-      connectWebSocket();
-      setTimeout(() => sendSearchMessage(), 500); // 接続待ち
+      // 接続後にメッセージ送信
+      connectWebSocket(() => sendSearchMessage());
     } else {
       sendSearchMessage();
     }
@@ -169,16 +176,28 @@ function AppContent() {
   };
 
   // 出力
-    const handleExport = () => {
-    console.log('handleExport called');
+  const handleExport = () => {
     if (!exportFormat) {
-      console.log('出力形式が未選択');
       alert("出力形式を選択してください。");
       return;
     }
-    console.log('選択された出力形式:', exportFormat);
+    if (exportFormat === 'csv') {
+      if (!csvUrl) {
+        alert("CSVファイルがまだ生成されていません。");
+        return;
+      }
+      window.open(csvUrl, '_blank');
+      return;
+    }
+    if (exportFormat === 'xlsx') {
+      if (!excelUrl) {
+        alert("Excelファイルがまだ生成されていません。");
+        return;
+      }
+      window.open(excelUrl, '_blank');
+      return;
+    }
     alert(`「${exportFormat.toUpperCase()}」形式での出力は未実装です。`);
-    console.log('未実装アラートを表示');
   };
 
   return (
@@ -272,7 +291,6 @@ function AppContent() {
             onChange={e => setExportFormat(e.target.value)}
           >
             <option value="">選択してください</option>
-            <option value="pdf">PDF</option>
             <option value="csv">CSV</option>
             <option value="xlsx">XLSX</option>
           </select>
