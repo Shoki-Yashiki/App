@@ -29,7 +29,7 @@ const awsmobile = {
     "Auth": {
         "region": "ap-northeast-1",
         "userPoolId": "ap-northeast-1_RbtV1wEab",
-        "userPoolWebClientId": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
+        "userPoolWebClientId": "4t9r71281hd7djn5g7rhev4mlt",
         "mandatorySignIn": true
     }
 };
