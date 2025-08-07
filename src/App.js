@@ -15,7 +15,8 @@ function AppContent() {
   const [loading, setLoading] = useState(false);
   const [progress, setProgress] = useState({ received: 0, total: 0 });
   const [results, setResults] = useState([]);
-  const [downloadUrl, setDownloadUrl] = useState('');
+  const [csvUrl, setCsvUrl] = useState('');
+  const [excelUrl, setExcelUrl] = useState('');
   const [exportFormat, setExportFormat] = useState('');
   const [inputErrors, setInputErrors] = useState({
     email: false,
@@ -43,13 +44,13 @@ function AppContent() {
 
       // CSVダウンロード
       if (data.message === "CSVファイルが生成されました。以下のリンクからダウンロードできます。" && data.url) {
-        setDownloadUrl(data.url);
+        setCsvUrl(data.url);
         return;
       }
 
       // Excelダウンロード
       if (data.message === "Excelファイルが生成されました。以下のリンクからダウンロードできます。" && data.url) {
-        setDownloadUrl(data.url);
+        setExcelUrl(data.url);
         return;
       }
 
@@ -161,7 +162,8 @@ function AppContent() {
     setPeriod('');
     setResults([]);
     setProgress({ received: 0, total: 0 });
-    setDownloadUrl('');
+    setCsvUrl('');
+    setExcelUrl('');
     setInputErrors({
       email: false,
       category: false,
