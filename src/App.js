@@ -1,7 +1,13 @@
 import React, { useState, useRef } from 'react';
 import './App.css';
+import { Amplify } from 'aws-amplify';
+import { Authenticator } from '@aws-amplify/ui-react';
+import '@aws-amplify/ui-react/styles.css';
+import awsconfig from './aws-exports';
 
-function App() {
+// Amplifyの初期化
+Amplify.configure(awsconfig);
+function AppContent() {
   const [email, setEmail] = useState('');
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -277,4 +283,16 @@ function App() {
   );
 }
 
-export default App;
+export default function App() {
+  return (
+    <Authenticator>
+      {({ signOut, user }) => (
+        <>
+          {/* サインアウトボタンを右上などに配置したい場合 */}
+          <button style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }} onClick={signOut}>サインアウト</button>
+          <AppContent />
+        </>
+      )}
+    </Authenticator>
+  );
+}
