@@ -1,0 +1,114 @@
+body {
+    font-family: 'Noto Sans JP', sans-serif;
+    display: flex;
+    margin: 0;
+    background-color: #f4f7f6;
+    color: #333;
+  }
+
+  .sidebar {
+    width: 25%;
+    padding: 30px;
+    background: #ffffff;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+    box-sizing: border-box;
+    border-right: 3px solid #008D61;
+  }
+
+  .main {
+    width: 75%;
+    padding: 30px;
+    position: relative;
+    box-sizing: border-box;
+  }
+
+  h2 {
+    margin-top: 0;
+    color: #008D61;
+    font-size: 24px;
+    border-bottom: 2px solid #008D61;
+    padding-bottom: 8px;
+  }
+
+  label {
+    font-weight: bold;
+    margin-top: 16px;
+    display: block;
+    color: #555;
+  }
+
+  input, select, button {
+    margin: 10px 0;
+    padding: 10px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 14px;
+    width: 100%;
+    box-sizing: border-box;
+    transition: all 0.3s ease;
+  }
+
+  input:focus, select:focus {
+    border-color: #008D61;
+    outline: none;
+    box-shadow: 0 0 5px rgba(0,141,97,0.3);
+  }
+
+  button {
+    border: none;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+    color: white;
+  }
+
+  /* 検索ボタン */
+  .search-button {
+    background-color: #dc3545;
+  }
+
+  .search-button:hover {
+    background-color: #c82333;
+  }
+
+  /* リセットボタン */
+  .reset-button {
+    background-color: #6c757d;
+  }
+
+  .reset-button:hover {
+    background-color: #5a6268;
+  }
+
+  /* 履歴ボタン */
+  .history-button {
+    background-color: #17a2b8;
+  }
+
+  .history-button:hover {
+    background-color: #138496;
+  }
+
+  .results {
+    height: 600px;
+    overflow-y: scroll;
+    border: 1px solid #ccc;
+    padding: 10px;
+    background-color: #fff;
+    border-radius: 6px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+  }
+
+  .export-section {
+    position: absolute;
+    bottom: 20px;
+    right: 30px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  #loadingMessage {
+    color: #dc3545;
+    font-weight: bold;
+  }
