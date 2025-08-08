@@ -42,12 +42,7 @@ function AppContent({ signOut, user }) {
 
     socket.onmessage = (event) => {
       console.log("📩 メッセージ受信:", event.data);
-      const data = JSON.parse(event.data);    
-      
-      if (data.type === "status" && data.message) {
-        setStatusMessage(data.message); // 最新の1件だけ保持
-        return;
-      }
+      const data = JSON.parse(event.data);   
 
       // CSVダウンロード
       if (data.message === "CSVファイルが生成されました。以下のリンクからダウンロードできます。" && data.url) {
@@ -62,7 +57,7 @@ function AppContent({ signOut, user }) {
       }
 
       // 総検索件数
-      if (data.message === "総検索件数") {
+      if (data.message === "総検索件数" && typeof data.data === 'number') {
         setProgress({ received: 0, total: data.data });
         setResults([]);
         return;
@@ -78,6 +73,7 @@ function AppContent({ signOut, user }) {
       // 全件完了
       if (data.message === "全件の処理が完了しました") {
         setLoading(false);
+        setStatusMessage("全件の処理が完了しました！");
         alert("✅ 全件の処理が完了しました！");
         return;
       }
@@ -86,6 +82,11 @@ function AppContent({ signOut, user }) {
       if (data.message === "条件に該当する回収情報はありませんでした。") {
         setLoading(false);
         alert("⚠️ 条件に該当する回収情報はありませんでした。");
+        return;
+      }
+
+      if (data.type === "status" && data.message) {
+        setStatusMessage(data.message); // 最新の1件だけ保持
         return;
       }
     };
@@ -290,7 +291,8 @@ function AppContent({ signOut, user }) {
         </button>
       </div>
 
-      <div className="main" style={{ position: 'relative' }}>
+      
+      <div className="main" style={{ display: 'flex', flexDirection: 'row', gap: '20px', width: '100%' }}>
         <div style={{
           position: 'absolute',
           top: 0,
@@ -309,29 +311,23 @@ function AppContent({ signOut, user }) {
           'ユーザー'} がサインインしています
       
         </div>
+        <div style={{ flex: 2 }}>
         <h2>検索結果</h2>
         
-
-{statusMessage && (
-  <div
-    className="status-display"
-    style={{
-      marginBottom: 20,
-      padding: 10,
-      border: '1px solid #ccc',
-      borderRadius: 8,
-      backgroundColor: '#f0f0f0',
-    }}
-  >
-    <h4>📡 ステータス</h4>
-    <div>✅ {statusMessage}</div>
+<div id="progressDisplay" style={{
+  marginBottom: 10,
+  fontWeight: 'bold',
+  color: '#008D61',
+  display: 'flex',
+  alignItems: 'center',
+  gap: '20px' // 件数とステータスの間隔
+}}>
+  <div>{progress.received}件 / {progress.total}件</div>
+  <div style={{ color: '#555', fontWeight: 'normal' }}>
+    {statusMessage || ''}
   </div>
-)}
+</div>
 
-
-        <div id="progressDisplay" style={{ marginBottom: 10, fontWeight: 'bold', color: '#008D61' }}>
-          {progress.received}件 / {progress.total}件
-        </div>
         <div className="results">
           {results.map((r, i) => (
             <div key={i} style={{ marginBottom: 20, padding: 15, border: '1px solid #008D61', borderRadius: 8, backgroundColor: '#f9fdfc' }}>
@@ -347,8 +343,9 @@ function AppContent({ signOut, user }) {
               <pre style={{ whiteSpace: 'pre-wrap' }}>{r['現象・リスク分析']}</pre>
             </div>
           ))}
-
         </div>
+        </div>
+
         <div className="export-section">
   <select
     id="exportFormat"
