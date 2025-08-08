@@ -1,6 +1,6 @@
 body {
     font-family: 'Noto Sans JP', sans-serif;
-    display: flex;
+    /*display: flex;*/
     margin: 0;
     background-color: #f4f7f6;
     color: #333;
@@ -88,6 +88,18 @@ body {
   .history-button:hover {
     background-color: #138496;
   }
+
+  .signout-btn {
+  width: auto !important;
+  min-width: 80px;
+  background: #f4f7f6;
+  color: #888;
+  border: none;
+  box-shadow: none;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+}
 
   .results {
     height: 600px;
