@@ -7,7 +7,7 @@ import awsconfig from './aws-exports';
 
 // Amplifyの初期化
 Amplify.configure(awsconfig);
-function AppContent() {
+function AppContent({ signOut, user }) {
   const [email, setEmail] = useState('');
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -18,6 +18,7 @@ function AppContent() {
   const [csvUrl, setCsvUrl] = useState('');
   const [excelUrl, setExcelUrl] = useState('');
   const [exportFormat, setExportFormat] = useState('');
+  const [statusMessage, setStatusMessage] = useState('');
   const [inputErrors, setInputErrors] = useState({
     email: false,
     category: false,
@@ -40,7 +41,13 @@ function AppContent() {
     };
 
     socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
+      console.log("📩 メッセージ受信:", event.data);
+      const data = JSON.parse(event.data);    
+      
+      if (data.type === "status" && data.message) {
+        setStatusMessage(data.message); // 最新の1件だけ保持
+        return;
+      }
 
       // CSVダウンロード
       if (data.message === "CSVファイルが生成されました。以下のリンクからダウンロードできます。" && data.url) {
@@ -123,8 +130,8 @@ function AppContent() {
     }
 
     setLoading(true);
+    setStatusMessage('');
     setResults([]);
-    setDownloadUrl('');
     setProgress({ received: 0, total: 0 });
 
     if (!socketRef.current || socketRef.current.readyState !== 1) {
@@ -213,6 +220,7 @@ function AppContent() {
           value={email}
           onChange={e => setEmail(e.target.value)}
           style={inputErrors.email ? { border: '2px solid #dc3545' } : {}}
+          disabled={loading}
         />
 
         <label htmlFor="sourceSelect">カテゴリ</label>
@@ -221,6 +229,7 @@ function AppContent() {
           value={category}
           onChange={e => setCategory(e.target.value)}
           style={inputErrors.category ? { border: '2px solid #dc3545' } : {}}
+          disabled={loading}
         >
           <option value="">選択してください</option>
           <option value="PMDA">PMDA</option>
@@ -234,6 +243,7 @@ function AppContent() {
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           style={inputErrors.keyword ? { border: '2px solid #dc3545' } : {}}
+          disabled={loading}
         />
 
         <label htmlFor="yearSelect">期間</label>
@@ -242,6 +252,7 @@ function AppContent() {
           value={period}
           onChange={e => setPeriod(e.target.value)}
           style={inputErrors.period ? { border: '2px solid #dc3545' } : {}}
+          disabled={loading}
         >
           <option value="">選択してください</option>
           <option value="2023">2023</option>
@@ -258,46 +269,141 @@ function AppContent() {
             🔄 検索中です...
           </div>
         )}
-        <button className="history-button" onClick={handleHistory}>履歴</button>
+        <button className="history-button" onClick={handleHistory} disabled={loading}>履歴</button>
+        <button
+          className="signout-btn"
+          style={{
+            marginTop: 20,
+            width: '100%',
+            minWidth: 80,
+            background: '#f4f7f6',
+            color: '#888',
+            border: 'none',
+            boxShadow: 'none',
+            fontWeight: 'bold',
+            fontSize: 16,
+            cursor: 'pointer'
+          }}
+          onClick={signOut}
+        >
+          サインアウト
+        </button>
       </div>
 
-      <div className="main">
+      <div className="main" style={{ position: 'relative' }}>
+        <div style={{
+          position: 'absolute',
+          top: 0,
+          right: 0,
+          padding: '8px 16px',
+          color: '#008D61',
+          fontWeight: 'bold',
+          fontSize: 14,
+          background: 'rgba(255,255,255,0.8)',
+          borderBottomLeftRadius: 8
+        }}>
+          {user?.signInDetails?.loginId ||
+          user?.attributes?.email ||
+          user?.attributes?.preferred_username ||
+          user?.username ||
+          'ユーザー'} がサインインしています
+      
+        </div>
         <h2>検索結果</h2>
+        
+
+{statusMessage && (
+  <div
+    className="status-display"
+    style={{
+      marginBottom: 20,
+      padding: 10,
+      border: '1px solid #ccc',
+      borderRadius: 8,
+      backgroundColor: '#f0f0f0',
+    }}
+  >
+    <h4>📡 ステータス</h4>
+    <div>✅ {statusMessage}</div>
+  </div>
+)}
+
+
         <div id="progressDisplay" style={{ marginBottom: 10, fontWeight: 'bold', color: '#008D61' }}>
           {progress.received}件 / {progress.total}件
         </div>
         <div className="results">
           {results.map((r, i) => (
             <div key={i} style={{ marginBottom: 20, padding: 15, border: '1px solid #008D61', borderRadius: 8, backgroundColor: '#f9fdfc' }}>
-              <strong>製品ID:</strong> {r.timestamp ? r.timestamp.split('#')[1] : '不明'}<br /><br />
-              <strong>回収理由:</strong><br />
-              <pre style={{ whiteSpace: 'pre-wrap' }}>{r.回収理由}</pre><br />
-              <strong>危惧される具体的な健康被害:</strong><br />
-              <pre style={{ whiteSpace: 'pre-wrap' }}>{r.危惧される具体的な健康被害}</pre><br />
-              <strong>現象・リスク分析:</strong><br />
+              <strong>製品ID:</strong> {r.timestamp ? r.timestamp.split('#')[1] : '不明'}<br />
+              <strong>一般名称:</strong> {r['一般名称'] || '不明'}
+              <br />
+              <strong>販売名:</strong> {r['販売名'] || '不明'}
+              <br />
+              <strong>製造販売業者の名称:</strong> {r['製造販売業者の名称'] || '不明'}
+              <br />
+              <strong>現象・リスク分析:</strong>
+              <br />
               <pre style={{ whiteSpace: 'pre-wrap' }}>{r['現象・リスク分析']}</pre>
             </div>
           ))}
-          {downloadUrl && (
-            <div style={{ marginTop: 20 }}>
-              <a href={downloadUrl} download style={{ color: '#008D61', fontWeight: 'bold' }} target="_blank" rel="noopener noreferrer">
-                📥 CSVファイルをダウンロード
-              </a>
-            </div>
-          )}
+
         </div>
         <div className="export-section">
-          <select
-            id="exportFormat"
-            value={exportFormat}
-            onChange={e => setExportFormat(e.target.value)}
-          >
-            <option value="">選択してください</option>
-            <option value="csv">CSV</option>
-            <option value="xlsx">XLSX</option>
-          </select>
-          <button onClick={handleExport}>出力</button>
-        </div>
+  <select
+    id="exportFormat"
+    value={exportFormat}
+    onChange={e => setExportFormat(e.target.value)}
+    disabled={loading}
+  >
+    <option value="">選択してください</option>
+    <option value="csv">CSV</option>
+    <option value="xlsx">XLSX</option>
+  </select>
+  <button
+    onClick={handleExport}
+    disabled={loading}
+    className={
+      !loading &&
+      (
+        (exportFormat === 'csv' && csvUrl) ||
+        (exportFormat === 'xlsx' && excelUrl)
+      )
+        ? 'export-ready'
+        : ''
+    }
+    style={{
+      background:
+        !loading &&
+        (
+          (exportFormat === 'csv' && csvUrl) ||
+          (exportFormat === 'xlsx' && excelUrl)
+        )
+          ? '#008D61' // ダウンロード可能時の色
+          : '#e0e0e0', // 通常時の色
+      color:
+        !loading &&
+        (
+          (exportFormat === 'csv' && csvUrl) ||
+          (exportFormat === 'xlsx' && excelUrl)
+        )
+          ? '#fff'
+          : '#888',
+      fontWeight: 'bold',
+      marginLeft: 8,
+      cursor:
+        !loading &&
+        (
+          (exportFormat === 'csv' && csvUrl) ||
+          (exportFormat === 'xlsx' && excelUrl)
+        )
+          ? 'pointer'
+          : 'not-allowed'
+    }}
+  >
+    出力
+  </button>
+</div>
       </div>
     </div>
   );
@@ -307,11 +413,7 @@ export default function App() {
   return (
     <Authenticator>
       {({ signOut, user }) => (
-        <>
-          {/* サインアウトボタンを右上などに配置したい場合 */}
-          <button style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000 }} onClick={signOut}>サインアウト</button>
-          <AppContent />
-        </>
+        <AppContent signOut={signOut} user={user} />
       )}
     </Authenticator>
   );
