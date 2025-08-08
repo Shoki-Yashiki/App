@@ -19,6 +19,8 @@ function AppContent({ signOut, user }) {
   const [excelUrl, setExcelUrl] = useState('');
   const [exportFormat, setExportFormat] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [historyData, setHistoryData] = useState([]);
+  const [showHistory, setShowHistory] = useState(false);
   const [inputErrors, setInputErrors] = useState({
     email: false,
     category: false,
@@ -73,7 +75,7 @@ function AppContent({ signOut, user }) {
       // 全件完了
       if (data.message === "全件の処理が完了しました") {
         setLoading(false);
-        setStatusMessage("全件の処理が完了しました！");
+        setStatusMessage("全件の処理が完了しました！ファイル形式を選択してダウンロードできます！");
         alert("✅ 全件の処理が完了しました！");
         return;
       }
@@ -89,6 +91,25 @@ function AppContent({ signOut, user }) {
         setStatusMessage(data.message); // 最新の1件だけ保持
         return;
       }
+    
+
+      if (data.message === "EXCEL形式の履歴ファイルです。" && data.data && data.url) {
+        setHistoryData(prev => [
+          ...prev,
+          {
+            keyword: data.data["全文検索キーワード"],
+            period: data.data["検索年度"],
+            timestamp: data.data["検索日時"],
+            url: data.url
+          }
+        ]);
+        
+        setStatusMessage("📄 履歴を表示しました。");
+        return;
+      }
+      //console.log("📄 履歴メッセージ受信:", data);
+
+
     };
 
     socket.onerror = () => {
@@ -180,10 +201,40 @@ function AppContent({ signOut, user }) {
     });
   };
 
-  // ダミー履歴
-  const handleHistory = () => {
-    alert("履歴機能は未実装です。");
+const handleBackToSearchResults = () => {
+  setShowHistory(false);
+  setStatusMessage(''); // ステータスをクリア
+};
+
+  
+const handleHistory = () => {
+  const userEmail =
+    user?.attributes?.email ||
+    user?.signInDetails?.loginId ||
+    user?.attributes?.preferred_username ||
+    user?.username;
+
+  if (!userEmail) {
+    alert("ユーザーのメールアドレスが取得できませんでした。");
+    return;
+  }
+
+  setShowHistory(true);
+  setResults([]);
+  setStatusMessage("履歴を取得中...");
+
+  const message3 = {
+    action: "history",
+    data: userEmail
   };
+
+  if (!socketRef.current || socketRef.current.readyState !== 1) {
+    connectWebSocket(() => socketRef.current.send(JSON.stringify(message3)));
+  } else {
+    socketRef.current.send(JSON.stringify(message3));
+  }
+};
+
 
   // 出力
   const handleExport = () => {
@@ -328,6 +379,30 @@ function AppContent({ signOut, user }) {
   </div>
 </div>
 
+{showHistory ? (
+  
+<div className="history-results" style={{
+    maxHeight: '60vh',
+    overflowY: 'auto',
+    paddingRight: '10px'
+  }}>
+    <h2>履歴一覧</h2>
+    {historyData.length === 0 ? (
+      <p>履歴がありません。</p>
+    ) : ( 
+historyData.map((item, index) => (
+        <div key={index} style={{ marginBottom: 20, padding: 15, border: '1px solid #ccc', borderRadius: 8 }}>
+          <strong>検索日時:</strong> {new Date(item.timestamp).toLocaleString()}<br />
+          <strong>キーワード:</strong> {item.keyword}<br />
+          <strong>検索年度:</strong> {item.period}<br />
+          <strong>結果ファイル:</strong> <a href={item.url} target="_blank" rel="noopener noreferrer">ダウンロード</a>
+        </div>
+      ))
+    )}
+  </div>
+
+) : (
+
         <div className="results">
           {results.map((r, i) => (
             <div key={i} style={{ marginBottom: 20, padding: 15, border: '1px solid #008D61', borderRadius: 8, backgroundColor: '#f9fdfc' }}>
@@ -344,6 +419,28 @@ function AppContent({ signOut, user }) {
             </div>
           ))}
         </div>
+
+)}
+
+{showHistory && (
+  <button
+    onClick={handleBackToSearchResults}
+    style={{
+      backgroundColor: '#008D61',
+      color: '#fff',
+      fontWeight: 'bold',
+      fontSize: '16px',
+      padding: '10px 20px',
+      borderRadius: '8px',
+      border: 'none',
+      cursor: 'pointer',
+      marginBottom: '20px',
+      boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+    }}
+  >
+    検索結果に戻る
+  </button>
+)}
         </div>
 
         <div className="export-section">
