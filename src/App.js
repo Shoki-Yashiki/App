@@ -8,7 +8,7 @@ import awsconfig from './aws-exports';
 // Amplifyの初期化
 Amplify.configure(awsconfig);
 function AppContent({ signOut, user }) {
-  const [email, setEmail] = useState('');
+  //const [email, setEmail] = useState('');
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
   const [period, setPeriod] = useState('');
@@ -22,7 +22,7 @@ function AppContent({ signOut, user }) {
   const [historyData, setHistoryData] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [inputErrors, setInputErrors] = useState({
-    email: false,
+    //email: false,
     category: false,
     keyword: false,
     period: false,
@@ -123,15 +123,15 @@ function AppContent({ signOut, user }) {
     // 入力チェック
     let errors = [];
     let newInputErrors = {
-      email: false,
+      //email: false,
       category: false,
       keyword: false,
       period: false,
     };
-    if (!email) {
+    /*if (!email) {
       errors.push("メールアドレスを入力してください。");
       newInputErrors.email = true;
-    }
+    }*/
     if (!category) {
       errors.push("カテゴリを選択してください。");
       newInputErrors.category = true;
@@ -166,6 +166,12 @@ function AppContent({ signOut, user }) {
 
   // メッセージ送信
   const sendSearchMessage = () => {
+    const userEmail =
+    user?.attributes?.email ||
+    user?.signInDetails?.loginId ||
+    user?.attributes?.preferred_username ||
+    user?.username;
+    
     if (!socketRef.current || socketRef.current.readyState !== 1) {
       alert("⚠️ WebSocketが未接続です。");
       setLoading(false);
@@ -173,11 +179,11 @@ function AppContent({ signOut, user }) {
     }
     const message = {
       action: "sendMessage",
-      data: { keyword, period, source: category, email }
+      data: { userEmail, keyword, period, source: category }
     };
     const message2 = {
       action: "PMDA",
-      data: { keyword, period, source: category, email }
+      data: { userEmail, keyword, period, source: category }
     };
     socketRef.current.send(JSON.stringify(message2));
     socketRef.current.send(JSON.stringify(message));
@@ -185,7 +191,7 @@ function AppContent({ signOut, user }) {
 
   // リセット
   const handleReset = () => {
-    setEmail('');
+    //setEmail('');
     setCategory('');
     setKeyword('');
     setPeriod('');
@@ -194,7 +200,7 @@ function AppContent({ signOut, user }) {
     setCsvUrl('');
     setExcelUrl('');
     setInputErrors({
-      email: false,
+      //email: false,
       category: false,
       keyword: false,
       period: false,
@@ -265,15 +271,7 @@ const handleHistory = () => {
     <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', justifyContent: 'center'}}>
       <div className="sidebar">
         <h2>検索条件</h2>
-        <label>メールアドレス</label>
-        <input
-          type="text"
-          placeholder="メールアドレスを入力"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          style={inputErrors.email ? { border: '2px solid #dc3545' } : {}}
-          disabled={loading}
-        />
+        
 
         <label htmlFor="sourceSelect">カテゴリ</label>
         <select
