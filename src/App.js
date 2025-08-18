@@ -13,6 +13,7 @@ function AppContent({ signOut, user }) {
   const [keyword, setKeyword] = useState('');
   const [period, setPeriod] = useState('');
   const [loading, setLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [progress, setProgress] = useState({ received: 0, total: 0 });
   const [results, setResults] = useState([]);
   const [csvUrl, setCsvUrl] = useState('');
@@ -104,7 +105,8 @@ function AppContent({ signOut, user }) {
           }
         ]);
         
-        setStatusMessage("📄 履歴を表示しました。");
+        setStatusMessage("📄 履歴を表示しました。⚠履歴表示中は検索できません。");
+        setHistoryLoading(false);
         return;
       }
       //console.log("📄 履歴メッセージ受信:", data);
@@ -171,7 +173,7 @@ function AppContent({ signOut, user }) {
     user?.signInDetails?.loginId ||
     user?.attributes?.preferred_username ||
     user?.username;
-    
+
     if (!socketRef.current || socketRef.current.readyState !== 1) {
       alert("⚠️ WebSocketが未接続です。");
       setLoading(false);
@@ -199,6 +201,7 @@ function AppContent({ signOut, user }) {
     setProgress({ received: 0, total: 0 });
     setCsvUrl('');
     setExcelUrl('');
+    setStatusMessage(''); 
     setInputErrors({
       //email: false,
       category: false,
@@ -210,10 +213,14 @@ function AppContent({ signOut, user }) {
 const handleBackToSearchResults = () => {
   setShowHistory(false);
   setStatusMessage(''); // ステータスをクリア
+  setHistoryLoading(false); 
+  setHistoryData([]);
 };
 
   
 const handleHistory = () => {
+  if (showHistory || historyLoading) return; 
+
   const userEmail =
     user?.attributes?.email ||
     user?.signInDetails?.loginId ||
@@ -225,6 +232,7 @@ const handleHistory = () => {
     return;
   }
 
+  setHistoryLoading(true); 
   setShowHistory(true);
   setResults([]);
   setStatusMessage("履歴を取得中...");
@@ -279,7 +287,7 @@ const handleHistory = () => {
           value={category}
           onChange={e => setCategory(e.target.value)}
           style={inputErrors.category ? { border: '2px solid #dc3545' } : {}}
-          disabled={loading}
+          disabled={showHistory || loading} 
         >
           <option value="">選択してください</option>
           <option value="PMDA">PMDA</option>
@@ -293,7 +301,7 @@ const handleHistory = () => {
           value={keyword}
           onChange={e => setKeyword(e.target.value)}
           style={inputErrors.keyword ? { border: '2px solid #dc3545' } : {}}
-          disabled={loading}
+          disabled={showHistory || loading} 
         />
 
         <label htmlFor="yearSelect">期間</label>
@@ -302,7 +310,7 @@ const handleHistory = () => {
           value={period}
           onChange={e => setPeriod(e.target.value)}
           style={inputErrors.period ? { border: '2px solid #dc3545' } : {}}
-          disabled={loading}
+          disabled={showHistory || loading} 
         >
           <option value="">選択してください</option>
           <option value="2023">2023</option>
@@ -310,8 +318,8 @@ const handleHistory = () => {
           <option value="2025">2025</option>
         </select>
 
-        <button onClick={handleReset} className="reset-button" disabled={loading}>リセット</button>
-        <button onClick={handleSearch} className="search-button" disabled={loading}>
+        <button onClick={handleReset} className="reset-button" disabled={showHistory || loading} >リセット</button>
+        <button onClick={handleSearch} className="search-button" disabled={showHistory || loading} >
           {loading ? "検索中..." : "検索"}
         </button>
         {loading && (
@@ -319,47 +327,50 @@ const handleHistory = () => {
             🔄 検索中です...
           </div>
         )}
-        <button className="history-button" onClick={handleHistory} disabled={loading}>履歴</button>
-        <button
-          className="signout-btn"
-          style={{
-            marginTop: 20,
-            width: '100%',
-            minWidth: 80,
-            background: '#f4f7f6',
-            color: '#888',
-            border: 'none',
-            boxShadow: 'none',
-            fontWeight: 'bold',
-            fontSize: 16,
-            cursor: 'pointer'
-          }}
-          onClick={signOut}
-        >
-          サインアウト
-        </button>
+        <button className="history-button" onClick={handleHistory} disabled={loading || historyLoading} >履歴</button>
       </div>
 
       
       <div className="main" style={{ display: 'flex', flexDirection: 'row', gap: '20px', width: '100%' }}>
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          right: 0,
-          padding: '8px 16px',
-          color: '#008D61',
-          fontWeight: 'bold',
-          fontSize: 14,
-          background: 'rgba(255,255,255,0.8)',
-          borderBottomLeftRadius: 8
-        }}>
-          {user?.signInDetails?.loginId ||
-          user?.attributes?.email ||
-          user?.attributes?.preferred_username ||
-          user?.username ||
-          'ユーザー'} がサインインしています
-      
-        </div>
+
+<div style={{
+  position: 'absolute',
+  top: 0,
+  right: 0,
+  padding: '8px 16px',
+  background: 'rgba(255,255,255,0.8)',
+  borderBottomLeftRadius: 8,
+  display: 'flex',
+  alignItems: 'center',
+  gap: '12px',
+  fontSize: '14px',
+  color: '#008D61',
+  fontWeight: 'bold'
+}}>
+  <span>
+    {user?.signInDetails?.loginId ||
+    user?.attributes?.email ||
+    user?.attributes?.preferred_username ||
+    user?.username ||
+    'ユーザー'} サインインしています
+  </span>
+  <button
+    onClick={signOut}
+    style={{
+      backgroundColor: '#f4f7f6',
+      color: '#888',
+      border: '1px solid #ccc',
+      borderRadius: '4px',
+      padding: '2px 4px',
+      fontSize: '12px',
+      fontWeight: 'bold',
+      cursor: 'pointer'
+    }}
+  >
+    サインアウト
+  </button>
+</div>
+
         <div style={{ flex: 2 }}>
         <h2>検索結果</h2>
         
@@ -441,61 +452,64 @@ historyData.map((item, index) => (
 )}
         </div>
 
-        <div className="export-section">
-  <select
-    id="exportFormat"
-    value={exportFormat}
-    onChange={e => setExportFormat(e.target.value)}
-    disabled={loading}
-  >
-    <option value="">選択してください</option>
-    <option value="csv">CSV</option>
-    <option value="xlsx">XLSX</option>
-  </select>
-  <button
-    onClick={handleExport}
-    disabled={loading}
-    className={
-      !loading &&
-      (
-        (exportFormat === 'csv' && csvUrl) ||
-        (exportFormat === 'xlsx' && excelUrl)
-      )
-        ? 'export-ready'
-        : ''
-    }
-    style={{
-      background:
+        
+{!showHistory && (
+  <div className="export-section">
+    <select
+      id="exportFormat"
+      value={exportFormat}
+      onChange={e => setExportFormat(e.target.value)}
+      disabled={loading}
+    >
+      <option value="">選択してください</option>
+      <option value="csv">CSV</option>
+      <option value="xlsx">XLSX</option>
+    </select>
+    <button
+      onClick={handleExport}
+      disabled={loading}
+      className={
         !loading &&
         (
           (exportFormat === 'csv' && csvUrl) ||
           (exportFormat === 'xlsx' && excelUrl)
         )
-          ? '#008D61' // ダウンロード可能時の色
-          : '#e0e0e0', // 通常時の色
-      color:
-        !loading &&
-        (
-          (exportFormat === 'csv' && csvUrl) ||
-          (exportFormat === 'xlsx' && excelUrl)
-        )
-          ? '#fff'
-          : '#888',
-      fontWeight: 'bold',
-      marginLeft: 8,
-      cursor:
-        !loading &&
-        (
-          (exportFormat === 'csv' && csvUrl) ||
-          (exportFormat === 'xlsx' && excelUrl)
-        )
-          ? 'pointer'
-          : 'not-allowed'
-    }}
-  >
-    出力
-  </button>
-</div>
+          ? 'export-ready'
+          : ''
+      }
+      style={{
+        background:
+          !loading &&
+          (
+            (exportFormat === 'csv' && csvUrl) ||
+            (exportFormat === 'xlsx' && excelUrl)
+          )
+            ? '#008D61'
+            : '#e0e0e0',
+        color:
+          !loading &&
+          (
+            (exportFormat === 'csv' && csvUrl) ||
+            (exportFormat === 'xlsx' && excelUrl)
+          )
+            ? '#fff'
+            : '#888',
+        fontWeight: 'bold',
+        marginLeft: 8,
+        cursor:
+          !loading &&
+          (
+            (exportFormat === 'csv' && csvUrl) ||
+            (exportFormat === 'xlsx' && excelUrl)
+          )
+            ? 'pointer'
+            : 'not-allowed'
+      }}
+    >
+      出力
+    </button>
+  </div>
+)}
       </div>
     </div>
   );
