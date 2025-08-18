@@ -9,6 +9,7 @@ import awsconfig from './aws-exports';
 Amplify.configure(awsconfig);
 function AppContent({ signOut, user }) {
   //const [email, setEmail] = useState('');
+  const [sortKey, setSortKey] = useState('');
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
   const [period, setPeriod] = useState('');
@@ -96,13 +97,13 @@ function AppContent({ signOut, user }) {
 
       if (data.message === "EXCEL形式の履歴ファイルです。" && data.data && data.url) {
         setHistoryData(prev => [
-          ...prev,
           {
             keyword: data.data["全文検索キーワード"],
             period: data.data["検索年度"],
             timestamp: data.data["検索日時"],
             url: data.url
-          }
+          },
+          ...prev
         ]);
         
         setStatusMessage("📄 履歴を表示しました。⚠履歴表示中は検索できません。");
@@ -110,8 +111,6 @@ function AppContent({ signOut, user }) {
         return;
       }
       //console.log("📄 履歴メッセージ受信:", data);
-
-
     };
 
     socket.onerror = () => {
@@ -150,6 +149,13 @@ function AppContent({ signOut, user }) {
 
     if (errors.length > 0) {
       alert("⚠️ 入力に不備があります:\n\n" + errors.join("\n"));
+      return;
+    }
+    
+    // FDA未実装チェック
+    if (category === 'FDA') {
+      alert("⚠️ FDAカテゴリでの検索は現在未実装です。");
+      setLoading(false);
       return;
     }
 
@@ -249,6 +255,20 @@ const handleHistory = () => {
   }
 };
 
+const sortResults = () => {
+  if (!sortKey) {
+    alert("⚠️ ソート対象を選択してください。");
+    return;
+  }
+
+  setResults(prev =>
+    [...prev].sort((a, b) => {
+      const valA = a[sortKey] || '';
+      const valB = b[sortKey] || '';
+      return valA.localeCompare(valB, 'ja');
+    })
+  );
+};
 
   // 出力
   const handleExport = () => {
@@ -330,7 +350,6 @@ const handleHistory = () => {
         <button className="history-button" onClick={handleHistory} disabled={loading || historyLoading} >履歴</button>
       </div>
 
-      
       <div className="main" style={{ display: 'flex', flexDirection: 'row', gap: '20px', width: '100%' }}>
 
 <div style={{
@@ -373,20 +392,54 @@ const handleHistory = () => {
 
         <div style={{ flex: 2 }}>
         <h2>検索結果</h2>
-        
-<div id="progressDisplay" style={{
-  marginBottom: 10,
-  fontWeight: 'bold',
-  color: '#008D61',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '20px' // 件数とステータスの間隔
-}}>
-  <div>{progress.received}件 / {progress.total}件</div>
-  <div style={{ color: '#555', fontWeight: 'normal' }}>
-    {statusMessage || ''}
-  </div>
+
+{!showHistory && (
+<div style={{ marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+  <label htmlFor="sortSelect"></label>
+  <select
+    id="sortSelect"
+    value={sortKey}
+    onChange={e => setSortKey(e.target.value)}
+    disabled={showHistory || results.length === 0}
+  >
+    <option value="">選択してください</option>
+    <option value="一般名称">一般名称</option>
+    <option value="販売名">販売名</option>
+    <option value="製造販売業者の名称">製造販売業者の名称</option>
+  </select>
+  <button
+    onClick={sortResults}
+    disabled={showHistory || results.length === 0}
+    style={{
+      padding: '4px 10px',
+      fontSize: '14px',
+      cursor: 'pointer',
+      backgroundColor: '#008D61',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '4px'
+    }}
+  >
+    並び替え
+  </button>
 </div>
+)}
+
+{!showHistory && (
+  <div id="progressDisplay" style={{
+    marginBottom: 10,
+    fontWeight: 'bold',
+    color: '#008D61',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '20px'
+  }}>
+    <div>{progress.received}件 / {progress.total}件</div>
+    <div style={{ color: '#555', fontWeight: 'normal' }}>
+      {statusMessage || ''}
+    </div>
+  </div>
+)}
 
 {showHistory ? (
   
@@ -396,6 +449,16 @@ const handleHistory = () => {
     paddingRight: '10px'
   }}>
     <h2>履歴一覧</h2>
+    
+<div style={{
+  marginBottom: 10,
+  fontWeight: 'bold',
+  color: '#888',
+  display: statusMessage ? 'block' : 'none'
+}}>
+  {statusMessage}
+</div>
+
     {historyData.length === 0 ? (
       <p>履歴がありません。</p>
     ) : ( 
