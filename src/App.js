@@ -10,6 +10,7 @@ Amplify.configure(awsconfig);
 function AppContent({ signOut, user }) {
   //const [email, setEmail] = useState('');
   const [sortKey, setSortKey] = useState('');
+  const [historyReady, setHistoryReady] = useState(false);
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
   const [period, setPeriod] = useState('');
@@ -33,7 +34,11 @@ function AppContent({ signOut, user }) {
 
   // WebSocket接続
   const connectWebSocket = (onOpenCallback) => {
-    if (socketRef.current) {
+    if (socketRef.current) {   
+    socketRef.current.onopen = null;
+    socketRef.current.onmessage = null;
+    socketRef.current.onerror = null;
+    socketRef.current.onclose = null;
       socketRef.current.close();
     }
     const socket = new window.WebSocket("wss://b96kdpstti.execute-api.ap-northeast-1.amazonaws.com/dev/");
@@ -41,7 +46,11 @@ function AppContent({ signOut, user }) {
 
     socket.onopen = () => {
       // 接続成功
-      if (onOpenCallback) onOpenCallback();
+      console.log("✅ WebSocket接続成功");
+      
+      if (typeof onOpenCallback === 'function') {
+          onOpenCallback();
+        }
     };
 
     socket.onmessage = (event) => {
@@ -57,6 +66,12 @@ function AppContent({ signOut, user }) {
       // Excelダウンロード
       if (data.message === "Excelファイルが生成されました。以下のリンクからダウンロードできます。" && data.url) {
         setExcelUrl(data.url);
+        return;
+      }
+      
+      // エラーメッセージの処理
+      if (data.type === "error" && data.data?.includes("ThrottlingException")) {
+        alert("⚠️ 検索件数が多すぎます。\nページを更新してから条件を絞って再度お試しください。");
         return;
       }
 
@@ -82,6 +97,13 @@ function AppContent({ signOut, user }) {
         return;
       }
 
+      // 履歴から戻るボタン
+      if (data.type === "status" && data.message === "履歴ファイルの確認が完了しました。") {
+        setStatusMessage(data.message);
+        setHistoryReady(true);
+        return;
+      }
+
       // 0件
       if (data.message === "条件に該当する回収情報はありませんでした。") {
         setLoading(false);
@@ -89,35 +111,78 @@ function AppContent({ signOut, user }) {
         return;
       }
 
+      // 最新の1件だけ保持
       if (data.type === "status" && data.message) {
-        setStatusMessage(data.message); // 最新の1件だけ保持
+        setStatusMessage(data.message);
         return;
       }
-    
 
-      if (data.message === "EXCEL形式の履歴ファイルです。" && data.data && data.url) {
-        setHistoryData(prev => [
-          {
-            keyword: data.data["全文検索キーワード"],
-            period: data.data["検索年度"],
-            timestamp: data.data["検索日時"],
-            url: data.url
-          },
-          ...prev
-        ]);
-        
-        setStatusMessage("📄 履歴を表示しました。⚠履歴表示中は検索できません。");
-        setHistoryLoading(false);
-        return;
+      if (
+  (data.message === "EXCEL形式の履歴ファイルです。" || data.message === "CSV形式の履歴ファイルです。") &&
+  data.data &&
+  data.url
+) {
+  const newEntry = {
+    keyword: data.data["全文検索キーワード"],
+    period: data.data["検索年度"],
+    timestamp: data.data["検索日時"]
+  };
+
+  setHistoryData(prev => {
+    const existingIndex = prev.findIndex(item =>
+      item.keyword === newEntry.keyword &&
+      item.period === newEntry.period &&
+      item.timestamp === newEntry.timestamp
+    );
+
+    if (existingIndex !== -1) {
+      const updated = [...prev];
+      if (data.message.includes("CSV")) {
+        updated[existingIndex].csvUrl = data.url;
+      } else {
+        updated[existingIndex].excelUrl = data.url;
       }
+      return updated;
+    } else {
+      return [
+        {
+          ...newEntry,
+          csvUrl: data.message.includes("CSV") ? data.url : '',
+          excelUrl: data.message.includes("Excel") ? data.url : ''
+        },
+        ...prev
+      ];
+    }
+  });
+
+  setStatusMessage("検索履歴を照会中...");
+  setHistoryLoading(false);
+  return;
+}
+
+
       //console.log("📄 履歴メッセージ受信:", data);
     };
 
     socket.onerror = () => {
       setLoading(false);
-      alert("⚠️ サーバーとの接続に失敗しました。");
+      alert("接続が切断されました。ページを更新してください( TДT)");
+    };
+    
+    socket.onclose = () => {
+        console.warn("⚠️ WebSocket接続が切断されました。");
+        alert("接続が切断されました。ページを更新してください( TДT)");
+        connectWebSocket();
     };
   };
+  
+const ensureWebSocketConnection = (callback) => {
+  if (!socketRef.current || socketRef.current.readyState !== 1) {
+    connectWebSocket(callback);
+  } else {
+    callback();
+  }
+};
 
   // 検索
   const handleSearch = () => {
@@ -154,7 +219,7 @@ function AppContent({ signOut, user }) {
     
     // FDA未実装チェック
     if (category === 'FDA') {
-      alert("⚠️ FDAカテゴリでの検索は現在未実装です。");
+      alert("⚠️ FDAカテゴリでの検索は現在未実装です。Coming soon...");
       setLoading(false);
       return;
     }
@@ -163,14 +228,11 @@ function AppContent({ signOut, user }) {
     setStatusMessage('');
     setResults([]);
     setProgress({ received: 0, total: 0 });
-
-    if (!socketRef.current || socketRef.current.readyState !== 1) {
-      // 接続後にメッセージ送信
-      connectWebSocket(() => sendSearchMessage());
-    } else {
-      sendSearchMessage();
-    }
-  };
+  
+  ensureWebSocketConnection(() => {
+    sendSearchMessage();
+  });
+};
 
   // メッセージ送信
   const sendSearchMessage = () => {
@@ -223,7 +285,6 @@ const handleBackToSearchResults = () => {
   setHistoryData([]);
 };
 
-  
 const handleHistory = () => {
   if (showHistory || historyLoading) return; 
 
@@ -238,6 +299,7 @@ const handleHistory = () => {
     return;
   }
 
+  setHistoryReady(false);
   setHistoryLoading(true); 
   setShowHistory(true);
   setResults([]);
@@ -248,11 +310,13 @@ const handleHistory = () => {
     data: userEmail
   };
 
-  if (!socketRef.current || socketRef.current.readyState !== 1) {
-    connectWebSocket(() => socketRef.current.send(JSON.stringify(message3)));
-  } else {
-    socketRef.current.send(JSON.stringify(message3));
-  }
+if (!socketRef.current || socketRef.current.readyState !== 1) {
+  connectWebSocket(() => {
+    socketRef.current.send(JSON.stringify(message3)); // ← 再接続後に履歴取得メッセージ送信
+  });
+} else {
+  socketRef.current.send(JSON.stringify(message3));
+}
 };
 
 const sortResults = () => {
@@ -299,7 +363,6 @@ const sortResults = () => {
     <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', justifyContent: 'center'}}>
       <div className="sidebar">
         <h2>検索条件</h2>
-        
 
         <label htmlFor="sourceSelect">カテゴリ</label>
         <select
@@ -462,14 +525,26 @@ const sortResults = () => {
     {historyData.length === 0 ? (
       <p>履歴がありません。</p>
     ) : ( 
+
 historyData.map((item, index) => (
-        <div key={index} style={{ marginBottom: 20, padding: 15, border: '1px solid #ccc', borderRadius: 8 }}>
-          <strong>検索日時:</strong> {new Date(item.timestamp).toLocaleString()}<br />
-          <strong>キーワード:</strong> {item.keyword}<br />
-          <strong>検索年度:</strong> {item.period}<br />
-          <strong>結果ファイル:</strong> <a href={item.url} target="_blank" rel="noopener noreferrer">ダウンロード</a>
-        </div>
-      ))
+  <div key={index} style={{ marginBottom: 20, padding: 15, border: '1px solid #ccc', borderRadius: 8 }}>
+    <strong>検索日時:</strong> {new Date(item.timestamp).toLocaleString()}<br />
+    <strong>キーワード:</strong> {item.keyword}<br />
+    <strong>検索年度:</strong> {item.period}<br />
+    <strong>結果ファイル:</strong><br />
+    {item.csvUrl && (
+      <a href={item.csvUrl} target="_blank" rel="noopener noreferrer" style={{ marginRight: '10px' }}>
+        CSVダウンロード
+      </a>
+    )}
+    {item.excelUrl && (
+      <a href={item.excelUrl} target="_blank" rel="noopener noreferrer">
+        Excelダウンロード
+      </a>
+    )}
+  </div>
+))
+
     )}
   </div>
 
@@ -494,7 +569,7 @@ historyData.map((item, index) => (
 
 )}
 
-{showHistory && (
+{showHistory && historyReady && (
   <button
     onClick={handleBackToSearchResults}
     style={{
