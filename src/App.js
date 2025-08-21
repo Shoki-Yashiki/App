@@ -45,6 +45,21 @@ function AppContent({ signOut, user }) {
     const socket = new window.WebSocket("wss://b96kdpstti.execute-api.ap-northeast-1.amazonaws.com/dev/");
     socketRef.current = socket;
 
+    
+  const handleSocketDisconnected = (message = 'WebSocketが切断されました。') => {
+    // ボタン復帰（disabled条件で使っているstateを解除）
+    setLoading(false);
+    setHistoryLoading(false);
+    // 必要なら履歴モードも解除（検索欄を即使えるようにする場合）
+    setShowHistory(false);
+
+    // ステータスメッセージ更新
+    setStatusMessage(`${message} 再接続を試行しますが、ページを更新せずに操作を継続できます。`);
+
+    // アラート通知
+    alert(`${message}\n\n再接続を試行します。操作は継続できます。`);
+  };
+
     socket.onopen = () => {
       // 接続成功
       console.log("✅ WebSocket接続成功");
@@ -172,16 +187,20 @@ function AppContent({ signOut, user }) {
       //console.log("📄 履歴メッセージ受信:", data);
     };
 
-    socket.onerror = () => {
-      setLoading(false);
-      alert("接続が切断されました。ページを更新してください( TДT)");
-    };
     
-    socket.onclose = () => {
-        console.warn("⚠️ WebSocket接続が切断されました。");
-        alert("接続が切断されました。ページを更新してください( TДT)");
+    socket.onerror = () => {
+      handleSocketDisconnected("接続エラーが発生しました。");
+    };   
+    
+socket.onclose = () => {
+      console.warn("⚠️ WebSocket接続が切断されました。");
+      handleSocketDisconnected("WebSocketが切断されました。");
+      // 少し待ってから再接続
+      setTimeout(() => {
         connectWebSocket();
+      }, 1500);
     };
+
   };
   
 const ensureWebSocketConnection = (callback) => {
