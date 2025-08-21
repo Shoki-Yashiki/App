@@ -336,12 +336,19 @@ const sortResults = () => {
 
   setResults(prev =>
     [...prev].sort((a, b) => {
+      if (sortKey === "製品ID") {
+        const idA = a.timestamp ? a.timestamp.split('#')[1] : '';
+        const idB = b.timestamp ? b.timestamp.split('#')[1] : '';
+        return idA.localeCompare(idB, 'ja', { numeric: true });
+      }
+
       const valA = a[sortKey] || '';
       const valB = b[sortKey] || '';
       return valA.localeCompare(valB, 'ja');
     })
   );
 };
+
 
   // 出力
   const handleExport = () => {
@@ -475,6 +482,7 @@ const sortResults = () => {
     disabled={showHistory || results.length === 0}
   >
     <option value="">選択してください</option>
+    <option value="製品ID">製品ID</option>
     <option value="一般名称">一般名称</option>
     <option value="販売名">販売名</option>
     <option value="製造販売業者の名称">製造販売業者の名称</option>
