@@ -31,6 +31,7 @@ function AppContent({ signOut, user }) {
     period: false,
   });
   const socketRef = useRef(null);
+  const totalCost = useRef(0);
 
   // WebSocket接続
   const connectWebSocket = (onOpenCallback) => {
@@ -53,26 +54,17 @@ function AppContent({ signOut, user }) {
         }
     };
 
-    
-    const COST_PER_ITEM = 0.001; // 1件あたりのコスト（ドル）
-    let currentSearchId = null;
-    let currentTotalCount = 0;
-
     socket.onmessage = (event) => {
       console.log("📩 メッセージ受信:", event.data);
       const data = JSON.parse(event.data);   
 
-      
-// 総検索件数を受信
-  if (data.message === "総検索件数" && typeof data.data === 'number') {
-    currentTotalCount = data.data;
-    currentSearchId = `${keyword}-${Date.now()}`;
-    console.log(`🔍 検索開始: ID=${currentSearchId}, 件数=${currentTotalCount}`);
-    setProgress({ received: 0, total: data.data });
-    setResults([]);
-    return;
-  }
-  
+      // Bedrock推定費用
+      if (data.type === "cost" && data.message === "Bedrock推定費用" && data.data?.USD) {
+        totalCost.current += data.data.USD;
+        console.log(`💰 現在の累計コスト: $${totalCost.current.toFixed(6)}`);
+        return;
+      }
+
       // CSVダウンロード
       if (data.message === "CSVファイルが生成されました。以下のリンクからダウンロードできます。" && data.url) {
         setCsvUrl(data.url);
@@ -105,15 +97,13 @@ function AppContent({ signOut, user }) {
         return;
       }
 
-      // 全件完了を受信 → コスト計算
-  if (data.message === "全件の処理が完了しました") {
-    const totalCost = currentTotalCount * COST_PER_ITEM;
-    console.log(`✅ 検索完了: ID=${currentSearchId}, 件数=${currentTotalCount}, コスト=$${totalCost.toFixed(4)}`);
-    setLoading(false);
-    setStatusMessage("全件の処理が完了しました！ファイル形式を選択してダウンロードできます！");
-    alert("✅ 全件の処理が完了しました！");
-    return;
-  }
+      // 全件完了
+      if (data.message === "全件の処理が完了しました") {
+        setLoading(false);
+        setStatusMessage("全件の処理が完了しました！ファイル形式を選択してダウンロードできます！");
+        alert("✅ 全件の処理が完了しました！");
+        return;
+      }
 
       // 履歴から戻るボタン
       if (data.type === "status" && data.message === "履歴ファイルの確認が完了しました。") {
@@ -242,6 +232,7 @@ const ensureWebSocketConnection = (callback) => {
       return;
     }
 
+    totalCost.current = 0;
     setLoading(true);
     setStatusMessage('');
     setResults([]);
