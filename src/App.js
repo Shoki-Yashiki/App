@@ -9,6 +9,8 @@ import awsconfig from './aws-exports';
 Amplify.configure(awsconfig);
 function AppContent({ signOut, user }) {
   //const [email, setEmail] = useState('');
+  const [showInquiryForm, setShowInquiryForm] = useState(false);
+  const [inquiryText, setInquiryText] = useState('');
   const [sortKey, setSortKey] = useState('');
   const [historyReady, setHistoryReady] = useState(false);
   const [category, setCategory] = useState('');
@@ -72,6 +74,14 @@ function AppContent({ signOut, user }) {
     socket.onmessage = (event) => {
       console.log("📩 メッセージ受信:", event.data);
       const data = JSON.parse(event.data);   
+      
+    // 履歴0件（＝一致する履歴ファイルなし）
+      if (data.type === "status" && data.message === "一致する履歴ファイルが見つかりませんでした。") {
+        setStatusMessage(data.message);
+        setHistoryData([]);          // 念のため空に
+        setHistoryLoading(false);    // ← これがないと戻るボタンが出ない
+        return;
+      }
 
       // Bedrock推定費用
       if (data.type === "cost" && data.message === "Bedrock推定費用" && data.data?.USD) {
@@ -124,6 +134,7 @@ function AppContent({ signOut, user }) {
       if (data.type === "status" && data.message === "履歴ファイルの確認が完了しました。") {
         setStatusMessage(data.message);
         setHistoryReady(true);
+        setHistoryLoading(false);
         return;
       }
 
@@ -308,9 +319,10 @@ const ensureWebSocketConnection = (callback) => {
 
 const handleBackToSearchResults = () => {
   setShowHistory(false);
-  setStatusMessage(''); // ステータスをクリア
+  //setStatusMessage(''); // ステータスをクリア
   setHistoryLoading(false); 
   setHistoryData([]);
+  setShowHistory(false); 
 };
 
 const handleHistory = () => {
@@ -330,7 +342,7 @@ const handleHistory = () => {
   setHistoryReady(false);
   setHistoryLoading(true); 
   setShowHistory(true);
-  setResults([]);
+  //setResults([]);
   setStatusMessage("履歴を取得中...");
 
   const message3 = {
@@ -394,6 +406,16 @@ const sortResults = () => {
     alert(`「${exportFormat.toUpperCase()}」形式での出力は未実装です。`);
   };
 
+const handleInquirySubmit = () => {
+    if (!inquiryText.trim()) {
+      alert('問い合わせ内容を入力してください。');
+      return;
+    }
+    alert(`問い合わせを送信しました:\n${inquiryText}`);
+    setInquiryText('');
+    setShowInquiryForm(false);
+  };
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', justifyContent: 'center'}}>
       <div className="sidebar">
@@ -449,7 +471,6 @@ const sortResults = () => {
       </div>
 
       <div className="main" style={{ display: 'flex', flexDirection: 'row', gap: '20px', width: '100%' }}>
-
 <div style={{
   position: 'absolute',
   top: 0,
@@ -471,6 +492,23 @@ const sortResults = () => {
     user?.username ||
     'ユーザー'} サインインしています
   </span>
+  
+<button
+          onClick={() => setShowInquiryForm(prev => !prev)}
+          style={{
+            backgroundColor: '#008D61',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            padding: '4px 8px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            cursor: 'pointer'
+          }}
+        >
+          問い合わせ
+        </button>
+
   <button
     onClick={signOut}
     style={{
@@ -487,6 +525,42 @@ const sortResults = () => {
     サインアウト
   </button>
 </div>
+
+{showInquiryForm && (
+        <div style={{
+          position: 'fixed',
+          top: 0, left: 0,
+          width: '100vw', height: '100vh',
+          backgroundColor: 'rgba(0,0,0,0.4)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            background: '#fff',
+            padding: '20px',
+            borderRadius: '8px',
+            width: '400px',
+            boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+          }}>
+            <h3>お問い合わせ</h3>
+            <textarea
+              value={inquiryText}
+              onChange={(e) => setInquiryText(e.target.value)}
+              placeholder="問題の詳細を入力してください"
+              style={{ width: '100%', height: '100px', marginBottom: '10px' }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button onClick={() => setShowInquiryForm(false)}>キャンセル</button>
+              <button
+                onClick={handleInquirySubmit}
+                style={{ backgroundColor: '#008D61', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px' }}
+              >
+                送信
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
         <div style={{ flex: 2 }}>
         <h2>検索結果</h2>
@@ -605,7 +679,7 @@ historyData.map((item, index) => (
 
 )}
 
-{showHistory && historyReady && (
+{showHistory && !historyLoading && (
   <button
     onClick={handleBackToSearchResults}
     style={{
@@ -617,7 +691,7 @@ historyData.map((item, index) => (
       borderRadius: '8px',
       border: 'none',
       cursor: 'pointer',
-      marginBottom: '20px',
+      marginTop: '20px',
       boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
     }}
   >
