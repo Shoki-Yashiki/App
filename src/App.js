@@ -56,7 +56,7 @@ function AppContent({ signOut, user }) {
     setShowHistory(false);
 
     // ステータスメッセージ更新
-    setStatusMessage(`${message} 再接続を試行しますが、ページを更新せずに操作を継続できます。`);
+    setStatusMessage(`${message} 再接続したため、操作を継続できます。`);
 
     // アラート通知
     alert(`${message}\n\n再接続を試行します。操作は継続できます。`);
@@ -104,7 +104,8 @@ function AppContent({ signOut, user }) {
       
       // エラーメッセージの処理
       if (data.type === "error" && data.data?.includes("ThrottlingException")) {
-        alert("⚠️ 検索件数が多すぎます。\nページを更新してから条件を絞って再度お試しください。");
+        alert("⚠️ 検索件数が多すぎます。\nページを更新してから再度お試しください。");
+        window.location.reload();
         return;
       }
 
@@ -319,7 +320,7 @@ const ensureWebSocketConnection = (callback) => {
 
 const handleBackToSearchResults = () => {
   setShowHistory(false);
-  //setStatusMessage(''); // ステータスをクリア
+  setStatusMessage(''); // ステータスをクリア
   setHistoryLoading(false); 
   setHistoryData([]);
   setShowHistory(false); 
@@ -379,7 +380,6 @@ const sortResults = () => {
     })
   );
 };
-
 
   // 出力
   const handleExport = () => {
@@ -654,10 +654,8 @@ historyData.map((item, index) => (
     )}
   </div>
 ))
-
     )}
   </div>
-
 ) : (
 
         <div className="results">
