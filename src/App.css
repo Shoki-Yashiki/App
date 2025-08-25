@@ -1,26 +1,33 @@
 body {
-    font-family: 'Noto Sans JP', sans-serif;
-    /*display: flex;*/
-    margin: 0;
-    background-color: #f4f7f6;
-    color: #333;
-  }
+  font-family: 'Noto Sans JP', sans-serif;
+  margin: 0;
+  background-color: #f4f7f6;
+  color: #333;
+  overflow-x: hidden; /* 横スクロール防止 */
+}
 
-  .sidebar {
-    width: 25%;
-    padding: 30px;
-    background: #ffffff;
-    box-shadow: 2px 0 8px rgba(0,0,0,0.1);
-    box-sizing: border-box;
-    border-right: 3px solid #008D61;
-  }
+.app-container {
+  display: flex;
+  min-height: 100vh;
+  width: 100%;
+}
 
-  .main {
-    width: 75%;
-    padding: 30px;
-    position: relative;
-    box-sizing: border-box;
-  }
+.sidebar {
+  flex: 0 0 280px; /* 固定幅 */
+  padding: 16px;
+  background: #ffffff;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.1);
+  border-right: 3px solid #008D61;
+  box-sizing: border-box;
+}
+
+.main {
+  flex: 1; /* 残り幅を自動調整 */
+  padding: 20px;
+  position: relative;
+  box-sizing: border-box;
+  overflow-y: auto; /* 必要なら縦スクロール */
+}
 
   h2 {
     margin-top: 0;
@@ -32,14 +39,14 @@ body {
 
   label {
     font-weight: bold;
-    margin-top: 16px;
+    margin-top: 8px;
     display: block;
     color: #555;
   }
 
   input, select, button {
-    margin: 10px 0;
-    padding: 10px;
+    margin: 4px 0;
+    padding: 8px;
     border-radius: 6px;
     border: 1px solid #ccc;
     font-size: 14px;
@@ -81,13 +88,29 @@ body {
   }
 
   /* 履歴ボタン */
-  .history-button {
-    background-color: #17a2b8;
-  }
 
-  .history-button:hover {
-    background-color: #138496;
-  }
+.history-button-container {
+  position: fixed;
+  bottom: 20px;
+  left: 320px; /* サイドバー幅+余白 */
+  z-index: 100;
+}
+
+.history-button-container .history-button {
+  background-color: #17a2b8;
+  color: #fff;
+  font-weight: bold;
+  padding: 10px 20px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  width: 120px;
+  text-align: center;
+}
+
+.history-button-container .history-button:hover {
+  background-color: #138496;
+}
 
   .signout-btn {
   width: auto !important;
@@ -110,6 +133,10 @@ body {
     border-radius: 6px;
     box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
   }
+
+  button.sort-toggle:hover {
+  background-color: #5a6268;
+}
 
   .export-section {
     position: absolute;
