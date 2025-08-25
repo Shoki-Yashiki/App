@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css';
 import { Amplify } from 'aws-amplify';
 import { Authenticator } from '@aws-amplify/ui-react';
@@ -12,6 +12,7 @@ function AppContent({ signOut, user }) {
   const [showInquiryForm, setShowInquiryForm] = useState(false);
   const [inquiryText, setInquiryText] = useState('');
   const [sortKey, setSortKey] = useState('');
+  const [showIntro, setShowIntro] = useState(false);
   const [historyReady, setHistoryReady] = useState(false);
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
@@ -32,13 +33,23 @@ function AppContent({ signOut, user }) {
   const [historyData, setHistoryData] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
   const [inputErrors, setInputErrors] = useState({
-    //email: false,
-    category: false,
-    keyword: false,
-    period: false,
-  });
+  category: false,
+  keyword: false,
+  period: false,
+  txtSaleName: false,
+  cbotype: false,
+  txtCompName: false,
+  cboClass: false,
+});
   const socketRef = useRef(null);
   const totalCost = useRef(0);
+
+  // ソート状態が変わったら即ソート
+useEffect(() => {
+  if (sortKey && results.length > 0) {
+    sortResults();
+  }
+}, [sortOrder, sortKey, results]); // sortOrderまたはsortKeyが変わったら実行
 
   // WebSocket接続
   const connectWebSocket = (onOpenCallback) => {
@@ -92,6 +103,13 @@ function AppContent({ signOut, user }) {
       if (data.type === "cost" && data.message === "Bedrock推定費用" && data.data?.USD) {
         totalCost.current += data.data.USD;
         console.log(`💰 現在の累計コスト: $${totalCost.current.toFixed(6)}`);
+        return;
+      }
+
+      // 検索結果が1000件超過した場合のエラー
+      if (data.type === "error" && data.message.includes("検索結果の上限は1000件です")) {
+        alert(`⚠️ ${data.message}\n\n条件を追加して再検索してください。`);
+        setLoading(false);
         return;
       }
 
@@ -229,31 +247,36 @@ const ensureWebSocketConnection = (callback) => {
 };
 
   // 検索
-  const handleSearch = () => {
-    // 入力チェック
-    let errors = [];
-    let newInputErrors = {
-      //email: false,
-      category: false,
-      keyword: false,
-      period: false,
-    };
-    /*if (!email) {
-      errors.push("メールアドレスを入力してください。");
-      newInputErrors.email = true;
-    }*/
+  
+const handleSearch = () => {
+  let errors = [];
+  let newInputErrors = {
+    category: false,
+    keyword: false,
+    period: false,
+    txtSaleName: false,
+    cbotype: false,
+    txtCompName: false,
+    cboClass: false,
+  };
+
     if (!category) {
-      errors.push("カテゴリを選択してください。");
-      newInputErrors.category = true;
+  errors.push("カテゴリを選択してください。");
+  newInputErrors.category = true;
     }
-    if (!keyword) {
-      errors.push("キーワードを入力してください。");
+
+    // 「その他の項目が1つ以上入力されているか」をチェック
+    const hasAnyOtherInput = keyword || period || txtSaleName || cbotype || txtCompName || cboClass;
+    if (!hasAnyOtherInput) {
+      errors.push("キーワード、年度、製品名、種類、製造販売業者名称、クラスのいずれかを1つ以上入力してください。");
       newInputErrors.keyword = true;
-    }
-    /*if (!period) {
-      errors.push("期間を選択してください。");
       newInputErrors.period = true;
-    }*/
+      newInputErrors.txtSaleName = true;
+      newInputErrors.cbotype = true;
+      newInputErrors.txtCompName = true;
+      newInputErrors.cboClass = true;
+    }
+
     setInputErrors(newInputErrors);
 
     if (errors.length > 0) {
@@ -335,6 +358,111 @@ const payload = {
     });
   };
 
+  const renderSearchFields = () => {
+  if (!category) return null;
+
+  if (category === 'PMDA') {
+    return (
+      <>
+        <label style={{ fontWeight: 'bold' }}>
+          全文検索キーワード
+        </label>
+        <input
+          type="text"
+          placeholder="キーワードを入力"
+          value={keyword}
+          onChange={e => setKeyword(e.target.value)}
+          style={inputErrors.keyword ? { border: '2px solid #dc3545' } : {}}
+          disabled={showHistory || loading}
+        />
+
+        <label htmlFor="yearSelect">年度</label>
+        <select
+          id="yearSelect"
+          value={period}
+          onChange={e => setPeriod(e.target.value)}
+          style={inputErrors.period ? { border: '2px solid #dc3545' } : {}}
+          disabled={showHistory || loading}
+        >
+          <option value="">選択してください</option>
+          <option value="2023">2023</option>
+          <option value="2024">2024</option>
+          <option value="2025">2025</option>
+        </select>
+
+        <label>一般名・製品名</label>
+        <input
+          type="text"
+          placeholder="製品名を入力"
+          value={txtSaleName}
+          onChange={e => setTxtSaleName(e.target.value)}
+          style={inputErrors.txtSaleName ? { border: '2px solid #dc3545' } : {}}
+          disabled={showHistory || loading}
+        />
+
+        <label htmlFor="cbotype">種類</label>
+        <select
+          id="cbotype"
+          value={cbotype}
+          onChange={e => setCbotype(e.target.value)}
+          style={inputErrors.cbotype ? { border: '2px solid #dc3545' } : {}}
+          disabled={showHistory || loading}
+        >
+          <option value="">選択してください</option>
+          <option value="1">医薬品</option>
+          <option value="2">化粧品</option>
+          <option value="3">医薬部外品</option>
+          <option value="4">医療機器</option>
+          <option value="6">再生医療等製品</option>
+        </select>
+
+        <label>製造販売業者等名称</label>
+        <input
+          type="text"
+          placeholder="会社名を入力"
+          value={txtCompName}
+          onChange={e => setTxtCompName(e.target.value)}
+          style={inputErrors.txtCompName ? { border: '2px solid #dc3545' } : {}}
+          disabled={showHistory || loading}
+        />
+
+        <label htmlFor="cboClass">クラス</label>
+        <select
+          id="cboClass"
+          value={cboClass}
+          onChange={e => setCboClass(e.target.value)}
+          style={inputErrors.cboClass ? { border: '2px solid #dc3545' } : {}}
+          disabled={showHistory || loading}
+        >
+          <option value="">選択してください</option>
+          <option value="1">クラスⅠ</option>
+          <option value="2">クラスⅡ</option>
+          <option value="3">クラスⅢ</option>
+        </select>
+
+        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+          <button onClick={handleReset} className="reset-button" disabled={showHistory || loading}>
+            リセット
+          </button>
+          <button onClick={handleSearch} className="search-button" disabled={showHistory || loading}>
+            {loading ? "検索中..." : "検索"}
+          </button>
+        </div>
+      </>
+    );
+  }
+
+  if (category === 'FDA') {
+    return (
+      <div style={{ marginTop: '10px', color: '#888' }}>
+        <p>FDA検索条件フォームは現在準備中です。</p>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 const handleBackToSearchResults = () => {
   setShowHistory(false);
   setStatusMessage(''); // ステータスをクリア
@@ -370,7 +498,7 @@ const handleHistory = () => {
 
 if (!socketRef.current || socketRef.current.readyState !== 1) {
   connectWebSocket(() => {
-    socketRef.current.send(JSON.stringify(message3)); // ← 再接続後に履歴取得メッセージ送信
+    socketRef.current.send(JSON.stringify(message3));
   });
 } else {
   socketRef.current.send(JSON.stringify(message3));
@@ -468,97 +596,9 @@ const handleInquirySubmit = () => {
           <option value="PMDA">PMDA</option>
           <option value="FDA">FDA</option>
         </select>
-        
-        <label style={{ fontWeight: 'bold' }}>
-          全文検索キーワード <span style={{ color: 'red', fontSize: '12px' }}>*</span>
-        </label>
-        <input
-          type="text"
-          placeholder="キーワードを入力"
-          value={keyword}
-          onChange={e => setKeyword(e.target.value)}
-          style={inputErrors.keyword ? { border: '2px solid #dc3545' } : {}}
-          disabled={showHistory || loading} 
-        />
 
-        <label htmlFor="yearSelect">年度</label>
-        <select
-          id="yearSelect"
-          value={period}
-          onChange={e => setPeriod(e.target.value)}
-          style={inputErrors.period ? { border: '2px solid #dc3545' } : {}}
-          disabled={showHistory || loading} 
-        >
-          <option value="">選択してください</option>
-          <option value="2023">2023</option>
-          <option value="2024">2024</option>
-          <option value="2025">2025</option>
-        </select>
-
-        {/* 一般名・製品名 */}
-        <label>一般名・製品名</label>
-        <input
-          type="text"
-          placeholder="製品名を入力"
-          value={txtSaleName}
-          onChange={e => setTxtSaleName(e.target.value)}
-          disabled={showHistory || loading}
-        />
-
-        {/* 種類 */}
-        <label htmlFor="cbotype">種類</label>
-        <select
-          id="cbotype"
-          value={cbotype}
-          onChange={e => setCbotype(e.target.value)}
-          disabled={showHistory || loading}
-        >
-          <option value="">選択してください</option>
-          <option value="1">医薬品</option>
-          <option value="2">化粧品</option>
-          <option value="3">医薬部外品</option>
-          <option value="4">医療機器</option>
-          <option value="6">再生医療等製品</option>
-        </select>
-
-        {/* 製造販売業者等名称 */}
-        <label>製造販売業者等名称</label>
-        <input
-          type="text"
-          placeholder="会社名を入力"
-          value={txtCompName}
-          onChange={e => setTxtCompName(e.target.value)}
-          disabled={showHistory || loading}
-        />
-
-        {/* クラス */}
-        <label htmlFor="cboClass">クラス</label>
-        <select
-          id="cboClass"
-          value={cboClass}
-          onChange={e => setCboClass(e.target.value)}
-          disabled={showHistory || loading}
-        >
-          <option value="">選択してください</option>
-          <option value="1">クラスⅠ</option>
-          <option value="2">クラスⅡ</option>
-          <option value="3">クラスⅢ</option>
-        </select>
-
-        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
-          <button onClick={handleReset} className="reset-button" disabled={showHistory || loading}>
-            リセット
-          </button>
-          <button onClick={handleSearch} className="search-button" disabled={showHistory || loading}>
-            {loading ? "検索中..." : "検索"}
-          </button>
-        </div>
-        {loading && (
-          <div id="loadingMessage" style={{ marginTop: 10, display: 'block' }}>
-            🔄 検索中です...
-          </div>
-        )}
-      </div>
+        {renderSearchFields()}
+        </div>     
       
 <div className="main">
 <div style={{
@@ -583,6 +623,22 @@ const handleInquirySubmit = () => {
     'ユーザー'} サインインしています
   </span>
   
+  <button
+  onClick={() => setShowIntro(true)}
+  style={{
+    backgroundColor: '#007bff',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    padding: '4px 8px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    cursor: 'pointer'
+  }}
+>
+  はじめに
+</button>
+
 <button
           onClick={() => setShowInquiryForm(prev => !prev)}
           style={{
@@ -615,6 +671,67 @@ const handleInquirySubmit = () => {
     サインアウト
   </button>
 </div>
+
+{showIntro && (
+  <div style={{
+    position: 'fixed',
+    top: 0, left: 0,
+    width: '100vw', height: '100vh',
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    display: 'flex', justifyContent: 'center', alignItems: 'center',
+    zIndex: 1000
+  }}>
+    <div style={{
+      background: '#fff',
+      padding: '20px',
+      borderRadius: '8px',
+      width: '1000px',
+      maxHeight: '100vh',
+      overflowY: 'auto',
+      boxShadow: '0 4px 8px rgba(0,0,0,0.2)'
+    }}>
+      <h2>はじめに</h2>
+      <p><strong>アプリのご紹介</strong><br/>
+      このアプリは、医療機器設計におけるデザインインプット活動の一環として、<br/>
+      有害事例に基づいた要求仕様の策定を支援するために、FY25入社の新人が開発しました。</p>
+
+      <p><strong>主な機能と使い方</strong></p>
+      <ul>
+        <li> <strong>検索条件の設定</strong><br/>
+        カテゴリ：現在は「PMDA」のみ選択可能です（「FDA」は未実装）。<br/>
+        全文検索キーワード：調べたいキーワードを入力してください。<br/>
+        期間：検索対象の年度を選択できます（2023年〜2025年）。PMDAの検索可能年度に合わせています。<br/>
+        一般名・製品名：製品名や一般名での検索が可能です。<br/>
+        種類：医薬品、化粧品、医薬部外品、医療機器、再生医療等製品から選択できます。<br/>
+        製造販売業者名：企業名での検索が可能です。<br/>
+        クラス：医療機器のクラスを指定して検索できます。<br/><br/>
+        カテゴリは必須、その他は1つ以上入力してください<br/>
+        </li>
+      </ul>
+
+      <p><strong> 操作ボタンの説明</strong></p>
+      <ul>
+        <li>検索：設定した条件で検索を開始します。誤操作防止のため、押した後はボタンが無効化します。</li>
+        <li>リセット：検索条件を初期状態に戻します。履歴は保持されます。</li>
+        <li>履歴：過去の検索履歴（日時・検索条件・結果ファイル）を確認できます。</li>
+        <li>昇順 ▲：検索結果を昇順にソートします。もう一度押すと降順にソートします。</li>
+        <li>問い合わせ：不具合や質問がある場合、開発者に連絡できます。</li>
+        <li>サインアウト：ログアウトしてログイン画面に戻ります。ブラウザを閉じても履歴は残ります。</li>
+      </ul>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '10px' }}>
+        <button onClick={() => setShowIntro(false)} style={{
+          backgroundColor: '#008D61',
+          color: '#fff',
+          border: 'none',
+          padding: '6px 12px',
+          borderRadius: '4px',
+          cursor: 'pointer'
+        }}>閉じる</button>
+      </div>
+    </div>
+  </div>
+)}
 
 {showInquiryForm && (
         <div style={{
@@ -677,7 +794,7 @@ const handleInquirySubmit = () => {
   <button
     onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
     style={{
-      width: '80px',
+      width: '140px',
       padding: '4px 10px',
       fontSize: '14px',
       cursor: 'pointer',
@@ -688,23 +805,6 @@ const handleInquirySubmit = () => {
     }}
   >
     {sortOrder === 'asc' ? '昇順 ▲' : '降順 ▼'}
-  </button>
-
-  {/* 並び替え実行 */}
-  <button
-    onClick={sortResults}
-    disabled={showHistory || results.length === 0}
-    style={{
-      padding: '4px 10px',
-      fontSize: '14px',
-      cursor: 'pointer',
-      backgroundColor: '#008D61',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '4px'
-    }}
-  >
-    並び替え
   </button>
 </div>
 )}
