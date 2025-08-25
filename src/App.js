@@ -16,7 +16,12 @@ function AppContent({ signOut, user }) {
   const [category, setCategory] = useState('');
   const [keyword, setKeyword] = useState('');
   const [period, setPeriod] = useState('');
+  const [txtSaleName, setTxtSaleName] = useState('');
+  const [cbotype, setCbotype] = useState('');
+  const [txtCompName, setTxtCompName] = useState('');
+  const [cboClass, setCboClass] = useState('');
   const [loading, setLoading] = useState(false);
+  const [sortOrder, setSortOrder] = useState('asc'); 
   const [historyLoading, setHistoryLoading] = useState(false);
   const [progress, setProgress] = useState({ received: 0, total: 0 });
   const [results, setResults] = useState([]);
@@ -245,10 +250,10 @@ const ensureWebSocketConnection = (callback) => {
       errors.push("キーワードを入力してください。");
       newInputErrors.keyword = true;
     }
-    if (!period) {
+    /*if (!period) {
       errors.push("期間を選択してください。");
       newInputErrors.period = true;
-    }
+    }*/
     setInputErrors(newInputErrors);
 
     if (errors.length > 0) {
@@ -287,14 +292,22 @@ const ensureWebSocketConnection = (callback) => {
       setLoading(false);
       return;
     }
-    const message = {
-      action: "sendMessage",
-      data: { userEmail, keyword, period, source: category }
-    };
-    const message2 = {
-      action: "PMDA",
-      data: { userEmail, keyword, period, source: category }
-    };
+    
+const payload = {
+    userEmail,
+    keyword,
+    source: category,
+  };
+
+  if (period) payload.period = period;                 // 任意
+  if (txtSaleName) payload.txtSaleName = txtSaleName;  // 任意
+  if (cbotype) payload.cbotype = Number(cbotype);      // 任意（数字で送る）
+  if (txtCompName) payload.txtCompName = txtCompName;  // 任意
+  if (cboClass) payload.cboClass = Number(cboClass);   // 任意（数字で送る）
+
+  const message = { action: "sendMessage", data: payload };
+  const message2 = { action: "PMDA", data: payload };
+
     socketRef.current.send(JSON.stringify(message2));
     socketRef.current.send(JSON.stringify(message));
   };
@@ -305,6 +318,10 @@ const ensureWebSocketConnection = (callback) => {
     setCategory('');
     setKeyword('');
     setPeriod('');
+    setTxtSaleName('');
+    setCbotype('');
+    setTxtCompName('');
+    setCboClass('');
     setResults([]);
     setProgress({ received: 0, total: 0 });
     setCsvUrl('');
@@ -368,15 +385,23 @@ const sortResults = () => {
 
   setResults(prev =>
     [...prev].sort((a, b) => {
+      let comparison = 0;
+
       if (sortKey === "製品ID") {
         const idA = a.timestamp ? a.timestamp.split('#')[1] : '';
         const idB = b.timestamp ? b.timestamp.split('#')[1] : '';
-        return idA.localeCompare(idB, 'ja', { numeric: true });
+        comparison = idA.localeCompare(idB, 'ja', { numeric: true });
+      } else if (sortKey === "掲載年月日") {
+        const dateA = a['掲載年月日'] ? new Date(a['掲載年月日']) : new Date(0);
+        const dateB = b['掲載年月日'] ? new Date(b['掲載年月日']) : new Date(0);
+        comparison = dateA - dateB; // 昇順
+      } else {
+        const valA = a[sortKey] || '';
+        const valB = b[sortKey] || '';
+        comparison = valA.localeCompare(valB, 'ja', { numeric: true });
       }
 
-      const valA = a[sortKey] || '';
-      const valB = b[sortKey] || '';
-      return valA.localeCompare(valB, 'ja');
+      return sortOrder === 'asc' ? comparison : -comparison;
     })
   );
 };
@@ -407,21 +432,31 @@ const sortResults = () => {
   };
 
 const handleInquirySubmit = () => {
-    if (!inquiryText.trim()) {
-      alert('問い合わせ内容を入力してください。');
-      return;
-    }
-    alert(`問い合わせを送信しました:\n${inquiryText}`);
-    setInquiryText('');
-    setShowInquiryForm(false);
-  };
+  if (!inquiryText.trim()) {
+    alert('問い合わせ内容を入力してください。');
+    return;
+  }
+
+  const supportEmail = "ryunosuke.ishikawa@terumo.co.jp;taiju.kamitani@terumo.co.jp;shoki.yashiki@terumo.co.jp"; // 宛先
+  const subject = encodeURIComponent("【お問い合わせ】有害事象検索システム");
+  const body = encodeURIComponent(`以下の内容でお問い合わせします。\n\n${inquiryText}`);
+
+  // Outlookを開く
+  window.location.href = `mailto:${supportEmail}?subject=${subject}&body=${body}`;
+
+  setInquiryText('');
+  setShowInquiryForm(false);
+};
+
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh', width: '100vw', justifyContent: 'center'}}>
-      <div className="sidebar">
+<div className="app-container">
+    <div className="sidebar">
         <h2>検索条件</h2>
-
-        <label htmlFor="sourceSelect">カテゴリ</label>
+        
+        <label htmlFor="sourceSelect" style={{ fontWeight: 'bold' }}>
+          カテゴリ <span style={{ color: 'red', fontSize: '12px' }}>*</span>
+        </label>
         <select
           id="sourceSelect"
           value={category}
@@ -433,8 +468,10 @@ const handleInquirySubmit = () => {
           <option value="PMDA">PMDA</option>
           <option value="FDA">FDA</option>
         </select>
-
-        <label>全文検索キーワード</label>
+        
+        <label style={{ fontWeight: 'bold' }}>
+          全文検索キーワード <span style={{ color: 'red', fontSize: '12px' }}>*</span>
+        </label>
         <input
           type="text"
           placeholder="キーワードを入力"
@@ -444,7 +481,7 @@ const handleInquirySubmit = () => {
           disabled={showHistory || loading} 
         />
 
-        <label htmlFor="yearSelect">期間</label>
+        <label htmlFor="yearSelect">年度</label>
         <select
           id="yearSelect"
           value={period}
@@ -458,19 +495,72 @@ const handleInquirySubmit = () => {
           <option value="2025">2025</option>
         </select>
 
-        <button onClick={handleReset} className="reset-button" disabled={showHistory || loading} >リセット</button>
-        <button onClick={handleSearch} className="search-button" disabled={showHistory || loading} >
-          {loading ? "検索中..." : "検索"}
-        </button>
+        {/* 一般名・製品名 */}
+        <label>一般名・製品名</label>
+        <input
+          type="text"
+          placeholder="製品名を入力"
+          value={txtSaleName}
+          onChange={e => setTxtSaleName(e.target.value)}
+          disabled={showHistory || loading}
+        />
+
+        {/* 種類 */}
+        <label htmlFor="cbotype">種類</label>
+        <select
+          id="cbotype"
+          value={cbotype}
+          onChange={e => setCbotype(e.target.value)}
+          disabled={showHistory || loading}
+        >
+          <option value="">選択してください</option>
+          <option value="1">医薬品</option>
+          <option value="2">化粧品</option>
+          <option value="3">医薬部外品</option>
+          <option value="4">医療機器</option>
+          <option value="6">再生医療等製品</option>
+        </select>
+
+        {/* 製造販売業者等名称 */}
+        <label>製造販売業者等名称</label>
+        <input
+          type="text"
+          placeholder="会社名を入力"
+          value={txtCompName}
+          onChange={e => setTxtCompName(e.target.value)}
+          disabled={showHistory || loading}
+        />
+
+        {/* クラス */}
+        <label htmlFor="cboClass">クラス</label>
+        <select
+          id="cboClass"
+          value={cboClass}
+          onChange={e => setCboClass(e.target.value)}
+          disabled={showHistory || loading}
+        >
+          <option value="">選択してください</option>
+          <option value="1">クラスⅠ</option>
+          <option value="2">クラスⅡ</option>
+          <option value="3">クラスⅢ</option>
+        </select>
+
+        <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+          <button onClick={handleReset} className="reset-button" disabled={showHistory || loading}>
+            リセット
+          </button>
+          <button onClick={handleSearch} className="search-button" disabled={showHistory || loading}>
+            {loading ? "検索中..." : "検索"}
+          </button>
+        </div>
         {loading && (
           <div id="loadingMessage" style={{ marginTop: 10, display: 'block' }}>
             🔄 検索中です...
           </div>
         )}
-        <button className="history-button" onClick={handleHistory} disabled={loading || historyLoading} >履歴</button>
       </div>
-
-      <div className="main" style={{ display: 'flex', flexDirection: 'row', gap: '20px', width: '100%' }}>
+      
+<div className="main">
 <div style={{
   position: 'absolute',
   top: 0,
@@ -566,8 +656,7 @@ const handleInquirySubmit = () => {
         <h2>検索結果</h2>
 
 {!showHistory && (
-<div style={{ marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-  <label htmlFor="sortSelect"></label>
+<div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
   <select
     id="sortSelect"
     value={sortKey}
@@ -576,10 +665,32 @@ const handleInquirySubmit = () => {
   >
     <option value="">選択してください</option>
     <option value="製品ID">製品ID</option>
+    <option value="掲載年月日">掲載年月日</option>
+    <option value="種類">種類</option>
+    <option value="クラス">クラス</option>
     <option value="一般名称">一般名称</option>
     <option value="販売名">販売名</option>
     <option value="製造販売業者の名称">製造販売業者の名称</option>
   </select>
+
+  {/* 昇順・降順トグル */}
+  <button
+    onClick={() => setSortOrder(prev => (prev === 'asc' ? 'desc' : 'asc'))}
+    style={{
+      width: '80px',
+      padding: '4px 10px',
+      fontSize: '14px',
+      cursor: 'pointer',
+      backgroundColor: '#6c757d',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '4px',
+    }}
+  >
+    {sortOrder === 'asc' ? '昇順 ▲' : '降順 ▼'}
+  </button>
+
+  {/* 並び替え実行 */}
   <button
     onClick={sortResults}
     disabled={showHistory || results.length === 0}
@@ -658,22 +769,23 @@ historyData.map((item, index) => (
   </div>
 ) : (
 
-        <div className="results">
-          {results.map((r, i) => (
-            <div key={i} style={{ marginBottom: 20, padding: 15, border: '1px solid #008D61', borderRadius: 8, backgroundColor: '#f9fdfc' }}>
-              <strong>製品ID:</strong> {r.timestamp ? r.timestamp.split('#')[1] : '不明'}<br />
-              <strong>一般名称:</strong> {r['一般名称'] || '不明'}
-              <br />
-              <strong>販売名:</strong> {r['販売名'] || '不明'}
-              <br />
-              <strong>製造販売業者の名称:</strong> {r['製造販売業者の名称'] || '不明'}
-              <br />
-              <strong>現象・リスク分析:</strong>
-              <br />
-              <pre style={{ whiteSpace: 'pre-wrap' }}>{r['現象・リスク分析']}</pre>
-            </div>
-          ))}
-        </div>
+ <div className="results">
+  {results.map((r, i) => (
+    <div key={i} style={{ marginBottom: 20, padding: 15, border: '1px solid #008D61', borderRadius: 8, backgroundColor: '#f9fdfc' }}>
+      <div style={{ marginBottom: '8px' }}>
+        <strong>製品ID：</strong> {r.timestamp ? r.timestamp.split('#')[1] : '不明'}　
+        <strong>掲載年月日：</strong> {r['掲載年月日'] || '不明'}　
+        <strong>種類：</strong> {r['種類'] || '不明'}　
+        <strong>クラス：</strong> {r['クラス'] || '不明'}
+      </div>
+      <strong>一般名称：</strong> {r['一般名称'] || '不明'}<br />
+      <strong>販売名：</strong> {r['販売名'] || '不明'}<br />
+      <strong>製造販売業者の名称：</strong> {r['製造販売業者の名称'] || '不明'}<br />
+      <strong>現象・リスク分析：</strong><br />
+      <pre style={{ whiteSpace: 'pre-wrap' }}>{r['現象・リスク分析']}</pre>
+    </div>
+  ))}
+</div>
 
 )}
 
@@ -756,6 +868,12 @@ historyData.map((item, index) => (
     </button>
   </div>
 )}
+    
+<div className="history-button-container">
+  <button onClick={handleHistory} className="history-button" disabled={loading || historyLoading}>
+    履歴
+  </button>
+</div>
       </div>
     </div>
   );
